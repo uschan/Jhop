@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Sparkles, Copy, Share2, Check } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import { AssessmentReport } from '../types';
@@ -17,6 +17,14 @@ export const AssessmentModal: React.FC<AssessmentModalProps> = ({ onClose }) => 
   const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   const [reportHtml, setReportHtml] = useState('');
   const [copied, setCopied] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to top when step changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [step]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +165,7 @@ export const AssessmentModal: React.FC<AssessmentModalProps> = ({ onClose }) => 
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto">
+        <div ref={scrollRef} className="p-6 overflow-y-auto scroll-smooth">
           {step === 'form' && (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Circle, Trophy, ClipboardList, Star, Lock, Calendar, History, X, Copy, Share2, Check } from 'lucide-react';
+import { CheckCircle, Circle, Trophy, ClipboardList, Star, Lock, Calendar, History, X, Copy, Share2, Check, Trash2 } from 'lucide-react';
 import { DEFAULT_TASKS, BADGES } from '../data';
 import { DailyTask, AssessmentReport } from '../types';
 
@@ -8,23 +8,32 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenAssessment }) => {
-  // Initialize tasks
+  // Initialize tasks with error handling
   const [tasks, setTasks] = useState<DailyTask[]>(() => {
-    const today = new Date().toDateString();
-    const savedDate = localStorage.getItem('jhop_date');
-    const savedTasks = localStorage.getItem('jhop_tasks');
+    try {
+      const today = new Date().toDateString();
+      const savedDate = localStorage.getItem('jhop_date');
+      const savedTasks = localStorage.getItem('jhop_tasks');
 
-    if (savedDate !== today) {
-      localStorage.setItem('jhop_date', today);
-      return DEFAULT_TASKS.map(t => ({ ...t, completed: false }));
+      if (savedDate !== today) {
+        localStorage.setItem('jhop_date', today);
+        return DEFAULT_TASKS.map(t => ({ ...t, completed: false }));
+      }
+      
+      return savedTasks ? JSON.parse(savedTasks) : DEFAULT_TASKS;
+    } catch (e) {
+      console.error("Error parsing tasks", e);
+      return DEFAULT_TASKS;
     }
-    
-    return savedTasks ? JSON.parse(savedTasks) : DEFAULT_TASKS;
   });
 
-  // Initialize points
+  // Initialize points with safe parsing
   const [points, setPoints] = useState(() => {
-    return parseInt(localStorage.getItem('jhop_points') || '0');
+    try {
+      return parseInt(localStorage.getItem('jhop_points') || '0');
+    } catch (e) {
+      return 0;
+    }
   });
 
   // Initialize reports
@@ -49,6 +58,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAssessment }) => {
         setReports(JSON.parse(savedReports));
       } catch (e) {
         console.error("Failed to parse reports", e);
+        // If data is corrupted, reset it to prevent crash loops
+        localStorage.setItem('jhop_reports', '[]');
       }
     }
   }, [onOpenAssessment]);
@@ -62,6 +73,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAssessment }) => {
     setTasks(newTasks);
     const pointChange = isCompleting ? 10 : -10;
     setPoints(prev => Math.max(0, prev + pointChange));
+  };
+
+  const deleteReport = (id: string) => {
+    if (window.confirm('确定要删除这份诊断报告吗？')) {
+      const updatedReports = reports.filter(r => r.id !== id);
+      setReports(updatedReports);
+      localStorage.setItem('jhop_reports', JSON.stringify(updatedReports));
+      setSelectedReport(null);
+    }
   };
 
   const completedCount = tasks.filter(t => t.completed).length;
@@ -238,7 +258,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAssessment }) => {
               <div 
                 key={report.id}
                 onClick={() => setSelectedReport(report)}
-                className="bg-slate-50 border border-slate-200 p-4 rounded-xl cursor-pointer hover:shadow-md hover:border-brand-300 transition-all group"
+                className="bg-slate-50 border border-slate-200 p-4 rounded-xl cursor-pointer hover:shadow-md hover:border-brand-300 transition-all group relative"
               >
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xs font-bold text-brand-600 bg-brand-100 px-2 py-0.5 rounded-full">
@@ -269,9 +289,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAssessment }) => {
                 <h2 className="text-lg font-bold text-brand-800">历史诊断档案</h2>
                 <p className="text-xs text-brand-600">{formatDate(selectedReport.timestamp)} | {selectedReport.grade}</p>
               </div>
-              <button onClick={() => setSelectedReport(null)} className="p-2 hover:bg-white rounded-full transition-colors text-slate-500">
-                <X className="w-5 h-5" />
-              </button>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => deleteReport(selectedReport.id)}
+                  className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-colors"
+                  title="删除此报告"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+                <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                <button onClick={() => setSelectedReport(null)} className="p-2 hover:bg-white rounded-full transition-colors text-slate-500">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             
             <div className="p-6 overflow-y-auto">
